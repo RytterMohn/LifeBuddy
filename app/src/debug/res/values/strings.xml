@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offline_fixture_running">Verifying the offline test inbox\nNo QQ or carrier messages will be sent</string>
+</resources>

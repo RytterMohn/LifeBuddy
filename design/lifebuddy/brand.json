@@ -1,0 +1,11 @@
+{
+  "name": "LifeBuddy",
+  "mascot": "小布",
+  "selectedConcept": "06-puppy",
+  "master": "lifebuddy.svg",
+  "transparent": "lifebuddy-mark.svg",
+  "monochrome": "lifebuddy-monochrome.svg",
+  "palette": { "cream": "#FAF0DE", "brown": "#74533D", "caramel": "#C39869" },
+  "regenerateAndroidAssets": "python3 scripts/generate_brand_assets.py",
+  "adaptiveIconReference": "https://developer.android.com/develop/ui/compose/system/icon_design_adaptive"
+}

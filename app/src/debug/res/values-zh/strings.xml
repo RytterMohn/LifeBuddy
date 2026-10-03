@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offline_fixture_running">正在验证离线测试信箱\n不会向 QQ 或运营商发送消息</string>
+</resources>

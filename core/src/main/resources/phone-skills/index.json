@@ -1,0 +1,7 @@
+[
+  {"id":"messaging.navigate","title":"微信与 QQ 的联系人查找及消息核对","description":"搜索联系人、区分同名与群聊，核对聊天对象、草稿和新增消息。","packages":["com.tencent.mm","com.tencent.mobileqq"],"aliases":["微信","WeChat","QQ"],"tags":["联系人","发消息","聊天","文件传输助手","发送","草稿"],"revision":1},
+  {"id":"netdisk.search","title":"百度网盘查找文件","description":"从文件页进入搜索，核对文件名、类型与无结果状态。","packages":["com.baidu.netdisk"],"aliases":["百度网盘","网盘","百度云","Baidu Netdisk"],"tags":["搜索","查找","文件","文件夹","文档","报价单"],"revision":1},
+  {"id":"netdisk.share","title":"百度网盘的文件分享结果","description":"核对指定文件后生成分享结果，保留链接供后续跨应用任务使用。","packages":["com.baidu.netdisk"],"aliases":["百度网盘","网盘","百度云"],"tags":["分享","链接","提取码","转发"],"revision":1},
+  {"id":"meituan.search","title":"美团外卖的搜索与结果辨认","description":"找到外卖或搜索入口，提交商家、商品关键词并核对结果范围。","packages":["com.sankuai.meituan","com.sankuai.meituan.takeoutnew"],"aliases":["美团","美团外卖","点饭","点外卖","Meituan"],"tags":["外卖","搜索","商家","店铺","商品","奶茶","咖啡","粥"],"revision":1},
+  {"id":"meituan.options","title":"美团商品规格与购物车核对","description":"检查商家、商品、规格、数量、金额与购物车状态，处理缺货和规格变化。","packages":["com.sankuai.meituan","com.sankuai.meituan.takeoutnew"],"aliases":["美团","美团外卖"],"tags":["规格","少辣","不辣","数量","购物车","加购","选餐"],"revision":1}
+]

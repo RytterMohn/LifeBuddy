@@ -1,0 +1,18 @@
+name: Feature request / 功能建议
+description: Explain the task you want LifeBuddy to support / 描述希望支持的任务
+title: '[Feature] '
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do? / 你想完成什么？
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Suggested behavior / 期望的使用方式
+  - type: textarea
+    id: context
+    attributes:
+      label: Apps or examples / 相关应用与示例

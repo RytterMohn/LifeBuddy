@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="LifeBuddy 小布">
+  <title>LifeBuddy · 小布</title>
+  <desc>LifeBuddy 正式标识。奶油底色、棕色脸庞与浅棕垂耳。</desc>
+  <rect width="256" height="256" rx="60" fill="#FAF0DE"/>
+  <path d="M90 82C97 72 111 67 128 67S159 72 166 82L185 120L183 161C182 184 162 199 128 199S74 184 73 161L71 120Z" fill="#74533D"/>
+  <path d="M86 73C71 70 63 83 60 104L56 141C54 154 62 162 72 160C81 158 83 149 85 139L96 92C98 82 94 75 86 73Z" fill="#C39869"/>
+  <path d="M170 73C185 70 193 83 196 104L200 141C202 154 194 162 184 160C175 158 173 149 171 139L160 92C158 82 162 75 170 73Z" fill="#C39869"/>
+  <rect x="100" y="119" width="9" height="14" rx="4.5" fill="#FAF0DE"/>
+  <rect x="147" y="119" width="9" height="14" rx="4.5" fill="#FAF0DE"/>
+  <path d="M120 147Q128 143 136 147Q140 153 128 159Q116 153 120 147Z" fill="#FAF0DE"/>
+  <path d="M128 159V164" fill="none" stroke="#FAF0DE" stroke-width="4" stroke-linecap="round"/>
+</svg>

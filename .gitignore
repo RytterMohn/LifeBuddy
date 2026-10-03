@@ -1,0 +1,63 @@
+# Build tools and local IDE state
+.gradle/
+.kotlin/
+build/
+.idea/
+*.iml
+.DS_Store
+local.properties
+.externalNativeBuild/
+.cxx/
+
+# Credentials, local configuration, signing keys and device data
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.pem
+*.p12
+*.pfx
+*.key
+*.credentials.*
+*.db
+*.db-shm
+*.db-wal
+*.sqlite*
+captures/
+
+# Model weights, native build outputs and downloaded dependencies
+/models/
+/native/build/
+/third_party/
+*.gguf
+*.task
+*.safetensors
+*.tflite
+*.so
+*.dylib
+*.a
+
+# APKs and local release/device verification records belong outside Git
+/releases/
+*.apk
+*.aab
+*.apks
+
+# Keep historical device logs/screenshots local; publish curated documentation only
+/docs/*
+!/docs/getting-started.md
+!/docs/architecture.md
+!/docs/extensions.md
+!/docs/development.md
+!/docs/testing.md
+!/docs/releases.md
+
+# Earlier logo drafts and internal previews
+/design/lifebuddy/logo-options/
+/design/lifebuddy/application-preview.*
+
+# Python scratch state
+__pycache__/
+*.pyc
+.venv/

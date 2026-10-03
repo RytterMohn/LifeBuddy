@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "My service": {
+      "type": "streamable-http",
+      "url": "https://your-server.example/mcp",
+      "headers": {
+        "Authorization": "Bearer REPLACE_WITH_YOUR_TOKEN"
+      }
+    }
+  }
+}

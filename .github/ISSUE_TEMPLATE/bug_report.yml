@@ -1,0 +1,38 @@
+name: Bug report / 问题反馈
+description: Report a reproducible problem / 提交可复现的问题
+title: '[Bug] '
+body:
+  - type: markdown
+    attributes:
+      value: Please remove API keys, private conversations and contact details from logs or screenshots. / 请先删除日志或截图中的 Key、私人聊天和联系人信息。
+  - type: input
+    id: version
+    attributes:
+      label: LifeBuddy version / 版本
+      placeholder: 0.2.0-alpha18
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Device and Android version / 手机与 Android 版本
+      placeholder: Device model, Android version, target app version
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce / 复现步骤
+      description: Include the mode, an anonymized task, and what happened. / 包括模式、脱敏后的任务和执行结果。
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior / 预期结果
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Relevant logs or screenshots / 相关日志或截图
