@@ -96,7 +96,7 @@ internal object EnglishTexts {
         "应用技能" to "App skills", "根据当前任务加载相关流程，切换 App 无需切换模式。内置技能是操作参考，每一步仍核对实际页面。" to "Relevant workflows load for the current task. Changing apps does not require another mode. Built-in skills are references; every step still checks the actual page.",
         "查看这次任务允许使用的应用。" to "List the apps allowed for this task.", "按名称、别名或包名检索应用，较长列表分批查看。" to "Search apps by name, alias or package, with paginated results.",
         "查找与当前任务有关的应用用法。" to "Find app instructions relevant to this task.", "需要时读取一份应用操作流程。" to "Read an app workflow when needed.",
-        "读取当前页面可访问的文字和控件。" to "Read accessible text and controls on the current page.", "按关键词查找当前页面的文字和按钮。" to "Find visible text and buttons by keyword.",
+        "按行号分段读取当前完整页面快照文件。" to "Read line ranges from the saved snapshot of the current screen.", "在当前完整页面快照文件中按关键词或正则搜索元素及上下文。" to "Grep the saved snapshot of the current screen by keyword or regex with context.",
         "打开这次任务允许使用的应用。" to "Open an app allowed for this task.", "直达本机可用的网络、显示、声音、电池、通知等设置页或闹钟列表。" to "Open available system settings or the alarm list.",
         "按时间和重复日设置系统闹钟，再查看结果。" to "Set an alarm with the requested time and repeat days, then check it.", "开始你指定时长的倒计时，再查看结果。" to "Start the requested timer and check the result.",
         "读取开关当前状态，按你的要求开启或关闭。" to "Read a switch state and set it as requested.", "调整界面实际支持的亮度、音量等滑块，并读回数值。" to "Adjust supported sliders and read back the value.",

@@ -94,11 +94,13 @@ class PhoneRunner(
         }
         publish(run)
         if (settleBeforePlanning) driver.awaitChange()
+        var cachedSnapshot: ScreenSnapshot? = null
         repeat((maxSteps - priorSteps).coerceAtLeast(0)) { turn ->
             val index = priorSteps + turn
             currentCoroutineContext().ensureActive()
             val observeStarted = System.nanoTime()
-            val before = driver.observe(apps.keys)
+            val before = cachedSnapshot ?: driver.observe(apps.keys)
+            cachedSnapshot = null
             run=run.copy(steps=SystemPhoneActions.verifiedSteps(before,run.steps))
             var observeMs = since(observeStarted)
             if (before.packageName !in apps) {
@@ -222,11 +224,24 @@ class PhoneRunner(
             }
             if (action.type in PhoneTools.readOnly) {
                 val result = PhoneTools.read(action, before, apps, run.messageRequest, run.steps, knowledge)
+                if (action.type == PhoneActionType.READ_SCREEN || action.type == PhoneActionType.FIND_NODES) {
+                    cachedSnapshot = before
+                }
                 run = run.copy(steps = run.steps.dropLast(1) + run.steps.last().copy(dispatched = true, observation = result))
                 publish(run)
-                if (run.steps.takeLast(3).size == 3 && run.steps.takeLast(3).all { it.action.type == action.type && it.action.query == action.query && it.action.cursor == action.cursor && it.action.skillId == action.skillId && it.observation == result }) {
+                if (run.steps.takeLast(3).size == 3 && run.steps.takeLast(3).all {
+                    it.action.type == action.type && it.action.query == action.query && it.action.cursor == action.cursor &&
+                        it.action.skillId == action.skillId && it.action.startLine == action.startLine &&
+                        it.action.lineCount == action.lineCount && it.observation == result
+                }) {
                     update(RunStatus.PAUSED, "连续读取同一结果，没有继续推进；已暂停")
                     return
+                }
+                if (action.type == PhoneActionType.FIND_NODES && result.contains("matches=0") &&
+                    run.steps.takeLast(3).size == 3 && run.steps.takeLast(3).all {
+                        it.action.type == PhoneActionType.FIND_NODES && it.action.snapshotId == before.id && it.observation.contains("matches=0")
+                    }) {
+                    feedback = "同一页面连续多次 grep 未命中，请勿继续换词盲猜；请用 phone_read_screen 分段通读完整页面文件，或滚动/返回后再观察。"
                 }
                 return@repeat
             }

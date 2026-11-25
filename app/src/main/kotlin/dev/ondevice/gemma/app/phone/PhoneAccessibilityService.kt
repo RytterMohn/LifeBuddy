@@ -28,7 +28,12 @@ import java.security.MessageDigest
 import java.util.UUID
 
 class PhoneAccessibilityService : AccessibilityService(), PhoneDriver {
-    companion object { const val PRACTICE_MARKER = "MobileAgentPractice" }
+    companion object {
+        const val PRACTICE_MARKER = "MobileAgentPractice"
+        private const val MAX_TRAVERSAL_DEPTH = 64
+        private const val MAX_TRAVERSAL_NODES = 4000
+        private const val MAX_COLLECTED_NODES = 1000
+    }
     private val paths = mutableMapOf<String, List<Int>>()
     private var lastChange = 0L
     private var lastScreen: ScreenSnapshot? = null
@@ -69,7 +74,9 @@ class PhoneAccessibilityService : AccessibilityService(), PhoneDriver {
             ?: rootInActiveWindow
     }
 
-    override suspend fun observe(allowed: Set<String>): ScreenSnapshot = withContext(Dispatchers.Main.immediate) {
+    override suspend fun observe(allowed: Set<String>): ScreenSnapshot = capture(allowed, writeScreenFile = true)
+
+    private suspend fun capture(allowed: Set<String>, writeScreenFile: Boolean): ScreenSnapshot = withContext(Dispatchers.Main.immediate) {
         check(!(getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked) { "手机已锁定，请解锁后重试" }
         val root = appRoot() ?: error("当前页面不可读取，请切换到目标应用")
         try {
@@ -81,69 +88,109 @@ class PhoneAccessibilityService : AccessibilityService(), PhoneDriver {
             ).also { lastScreen = it }
             val nodes = mutableListOf<ScreenNode>()
             val signatures = mutableListOf<String>()
+            val screenHeight = resources.displayMetrics.heightPixels.coerceAtLeast(1)
             var count = 0
             var practice = false
-            fun visit(node: AccessibilityNodeInfo, path: List<Int>, depth: Int, hidden: Boolean, clickableParent: String = "") {
-                if (depth > 30 || count++ >= 500) return
+            var truncated = false
+            fun visit(node: AccessibilityNodeInfo, path: List<Int>, depth: Int, visualDepth: Int, hidden: Boolean, clickableParent: String = "") {
+                if (depth > MAX_TRAVERSAL_DEPTH || count++ >= MAX_TRAVERSAL_NODES) {
+                    truncated = true
+                    return
+                }
                 val text = node.text?.toString().orEmpty()
                 val description = node.contentDescription?.toString().orEmpty()
                 if (description == PRACTICE_MARKER) practice = true
                 val rid = node.viewIdResourceName.orEmpty()
                 val hint = node.hintText?.toString().orEmpty()
                 var nextClickable = clickableParent
+                var nextVisualDepth = visualDepth
                 val privateNode = hidden || node.isPassword || sensitive.containsMatchIn("$rid $description $text $hint")
-                if (!privateNode && node.isVisibleToUser && node.isEnabled && nodes.size < 100) {
-                    val bounds = Rect().also { node.getBoundsInScreen(it) }
-                    if (text.isNotBlank() || description.isNotBlank() || hint.isNotBlank() || node.isClickable || node.isEditable || node.isScrollable || node.isLongClickable || node.isCheckable || node.rangeInfo!=null) {
-                        val id = "n" + nodes.size
-                        val canSearch = Build.VERSION.SDK_INT >= 30 && node.isEditable &&
-                            node.actionList.any { it.id == AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id } &&
-                            Regex("search|搜索|查找", RegexOption.IGNORE_CASE).containsMatchIn("$hint $description $rid")
-                        val range=node.rangeInfo
-                        val canProgress=range!=null && node.actionList.any { it.id==AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_PROGRESS.id }
-                        val state=(if(Build.VERSION.SDK_INT>=30) node.stateDescription?.toString().orEmpty() else "").ifBlank {
-                            when { node.isCheckable -> if(node.isChecked) "已开启/已选中" else "已关闭/未选中"
-                                range!=null -> "当前值 ${range.current}，范围 ${range.min} 至 ${range.max}"; else -> "" }
+                if (!privateNode && node.isVisibleToUser && node.isEnabled) {
+                    val interesting = text.isNotBlank() || description.isNotBlank() || hint.isNotBlank() ||
+                        node.isClickable || node.isEditable || node.isScrollable || node.isLongClickable ||
+                        node.isCheckable || node.rangeInfo != null
+                    if (interesting) {
+                        if (nodes.size >= MAX_COLLECTED_NODES) {
+                            truncated = true
+                        } else {
+                            val bounds = Rect().also { node.getBoundsInScreen(it) }
+                            val id = "n" + nodes.size
+                            val canSearch = Build.VERSION.SDK_INT >= 30 && node.isEditable &&
+                                node.actionList.any { it.id == AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id } &&
+                                Regex("search|搜索|查找", RegexOption.IGNORE_CASE).containsMatchIn("$hint $description $rid")
+                            val range = node.rangeInfo
+                            val canProgress = range != null && node.actionList.any { it.id == AccessibilityNodeInfo.AccessibilityAction.ACTION_SET_PROGRESS.id }
+                            val state = (if (Build.VERSION.SDK_INT >= 30) node.stateDescription?.toString().orEmpty() else "").ifBlank {
+                                when {
+                                    node.isCheckable -> if (node.isChecked) "已开启/已选中" else "已关闭/未选中"
+                                    range != null -> "当前值 ${range.current}，范围 ${range.min} 至 ${range.max}"
+                                    else -> ""
+                                }
+                            }
+                            val boundsText = if (bounds.isEmpty) "" else "[${bounds.left},${bounds.top},${bounds.right},${bounds.bottom}]"
+                            val region = if (bounds.isEmpty) "" else when {
+                                bounds.centerY() < (screenHeight * 0.25f).toInt() -> "top"
+                                bounds.centerY() > (screenHeight * 0.75f).toInt() -> "bottom"
+                                else -> "mid"
+                            }
+                            nodes += ScreenNode(
+                                id, text.take(400), description.take(250), rid,
+                                node.isClickable, node.isEditable, node.isScrollable,
+                                hint = hint.take(120), clickTargetId = if (node.isClickable) id else clickableParent,
+                                longClickable = node.isLongClickable, canSubmitSearch = canSearch,
+                                contextHeader = !node.isEditable && bounds.centerY() in 0..(screenHeight * .28f).toInt(),
+                                checkable = node.isCheckable, checked = node.isChecked, selected = node.isSelected,
+                                stateDescription = state.take(160),
+                                rangeMin = range?.min, rangeMax = range?.max, rangeValue = range?.current,
+                                canSetProgress = canProgress,
+                                rangeIsInteger = range?.type == AccessibilityNodeInfo.RangeInfo.RANGE_TYPE_INT,
+                                depth = visualDepth, bounds = boundsText, region = region,
+                            )
+                            if (node.isClickable) nextClickable = id
+                            nextVisualDepth = visualDepth + 1
+                            paths[id] = path
+                            signatures += "$path|$text|$description|$hint|$rid|$bounds|${node.isClickable}|${node.isEditable}|${node.isScrollable}|${node.isLongClickable}|$canSearch|${node.isCheckable}|${node.isChecked}|${node.isSelected}|$state|${range?.min}|${range?.max}|${range?.current}|$canProgress"
                         }
-                        nodes += ScreenNode(id, text.take(400), description.take(250), rid,
-                            node.isClickable, node.isEditable, node.isScrollable,
-                            hint = hint.take(120), clickTargetId = if (node.isClickable) id else clickableParent,
-                            longClickable = node.isLongClickable, canSubmitSearch = canSearch,
-                            contextHeader = !node.isEditable && bounds.centerY() in 0..(resources.displayMetrics.heightPixels * .28f).toInt(),
-                            checkable=node.isCheckable,checked=node.isChecked,selected=node.isSelected,stateDescription=state.take(160),
-                            rangeMin=range?.min,rangeMax=range?.max,rangeValue=range?.current,canSetProgress=canProgress,
-                            rangeIsInteger=range?.type==AccessibilityNodeInfo.RangeInfo.RANGE_TYPE_INT)
-                        if (node.isClickable) nextClickable = id
-                        paths[id] = path
-                        signatures += "$path|$text|$description|$hint|$rid|$bounds|${node.isClickable}|${node.isEditable}|${node.isScrollable}|${node.isLongClickable}|$canSearch|${node.isCheckable}|${node.isChecked}|${node.isSelected}|$state|${range?.min}|${range?.max}|${range?.current}|$canProgress"
                     }
                 }
                 if (!privateNode) for (i in 0 until node.childCount) {
                     val child = node.getChild(i) ?: continue
-                    try { visit(child, path + i, depth + 1, false, nextClickable) } finally { child.recycle() }
+                    try { visit(child, path + i, depth + 1, nextVisualDepth, false, nextClickable) } finally { child.recycle() }
                 }
             }
-            visit(root, emptyList(), 0, false)
+            visit(root, emptyList(), 0, 0, false)
             // Never expose our API-key/settings/chat screens to the planner.
             val isControl = pkg == packageName && !practice
-            if (isControl) { nodes.clear(); paths.clear(); signatures.clear() }
+            if (isControl) { nodes.clear(); paths.clear(); signatures.clear(); truncated = false }
             val bytes = "$pkg|${root.windowId}|${resources.configuration.orientation}|${signatures.joinToString()}".toByteArray()
             val fingerprint = MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
-            ScreenSnapshot(UUID.randomUUID().toString(), pkg, System.currentTimeMillis(), fingerprint, nodes,
-                if (isControl) "当前是 Agent 控制页，内容不提供给模型。请 OPEN_APP 到目标应用；自身包名会打开练习页面。"
-                else "仅提供可访问的可见节点；最多 100 个节点，每段文本最多 400 字符。",
+            val notice = when {
+                isControl -> "当前是 Agent 控制页，内容不提供给模型。请 OPEN_APP 到目标应用；自身包名会打开练习页面。"
+                truncated -> "已采集当前页面可访问可见节点并写入快照文件（达到上限 $MAX_COLLECTED_NODES 节点 / $MAX_TRAVERSAL_NODES 遍历，部分元素已截断）。"
+                else -> "已采集当前页面全部可访问可见节点并写入快照文件；长页面可用 phone_find_nodes grep 或 phone_read_screen 分段读取。"
+            }
+            val baseSnapshot = ScreenSnapshot(
+                UUID.randomUUID().toString(), pkg, System.currentTimeMillis(), fingerprint, nodes,
+                notice,
                 appVersion = runCatching {
                     val info = packageManager.getPackageInfo(pkg, 0)
                     if (Build.VERSION.SDK_INT >= 28) info.longVersionCode.toString() else info.versionCode.toString()
-                }.getOrDefault(""),systemTargets=systemBridge.targets(allowed),localTime=java.time.ZonedDateTime.now().toString()
-            ).also { lastScreen = it }
+                }.getOrDefault(""),
+                systemTargets = systemBridge.targets(allowed),
+                localTime = java.time.ZonedDateTime.now().toString(),
+                truncated = truncated,
+            )
+            val savedPath = if (writeScreenFile && !isControl) {
+                runCatching { ScreenDocument.writeToFile(baseSnapshot, java.io.File(cacheDir, "screen_snapshots")).absolutePath }.getOrDefault("")
+            } else ""
+            baseSnapshot.copy(screenFilePath = savedPath).also { lastScreen = it }
         } finally { root.recycle() }
     }
 
     override suspend fun execute(action: PhoneAction, screen: ScreenSnapshot): Boolean = withContext(Dispatchers.Main.immediate) {
         check(lastScreen?.id == screen.id && action.snapshotId == screen.id) { "快照失效" }
         val run = PhoneController.run.value
-        val live = observe(run.allowedPackages)
+        val live = capture(run.allowedPackages, writeScreenFile = false)
         check(live.fingerprint == screen.fingerprint) { "执行前页面已变化，未执行此步骤" }
         check(PhoneController.busy) { "任务已停止" }
         // The last step is the persisted intent for THIS call, not a prior send to replay.

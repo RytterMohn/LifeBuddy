@@ -15,8 +15,8 @@ object PhoneTools {
         PhoneTool("phone_search_apps", "检索应用目录", "在本机允许的应用目录按名称、中文别名或包名搜索，每次最多8项。query为空可浏览；cursor首次为空，翻页使用上次nextCursor。不会打开应用。", PhoneActionType.SEARCH_APPS, listOf("query", "cursor")),
         PhoneTool("phone_search_skills", "查找应用技能", "按任务关键词检索最多3份应用技能简介。packageName为空表示在允许应用范围查询，填写时只查该App。query为空可查该App技能。没有技能仍可用通用工具。", PhoneActionType.SEARCH_SKILLS, listOf("query", "packageName")),
         PhoneTool("phone_load_skill", "加载应用技能", "按搜索结果中的skillId加载技能正文。本次规划通常已经自动加载相关技能；缺少流程说明时才调用，不必每步重复加载。", PhoneActionType.LOAD_SKILL, listOf("skillId")),
-        PhoneTool("phone_read_screen", "读取当前页面", "重新读取当前页面的可访问文字和节点，不操作页面。通常请求中已含当前页面。", PhoneActionType.READ_SCREEN),
-        PhoneTool("phone_find_nodes", "查找页面元素", "在当前可见页面按关键词查找文字、描述、提示或资源 ID，返回节点与可点击父节点。不搜索整个 App。", PhoneActionType.FIND_NODES, listOf("query")),
+        PhoneTool("phone_read_screen", "读取当前页面", "按行号读取当前完整页面快照文件（类似代码文件 read），不操作页面。startLine 为起始行号（空字符串表示1），lineCount 为读取行数（1–120，空字符串表示80）。页面较长有省略行、或不确定按钮名称时，直接分段通读完整页面文件，不要盲猜关键词。", PhoneActionType.READ_SCREEN, listOf("startLine", "lineCount")),
+        PhoneTool("phone_find_nodes", "查找页面元素", "在当前完整页面快照文件中按关键词或正则 grep 搜索（忽略大小写），返回命中行及前后上下文行（含父级可点击容器、nodeId、区域坐标与相邻状态）。若未命中，不要反复换词盲猜，改用 phone_read_screen 分段通读页面文件。", PhoneActionType.FIND_NODES, listOf("query")),
         PhoneTool("phone_open_app", "打开应用", "打开本次允许的应用。自身包名打开内置练习页。", PhoneActionType.OPEN_APP, listOf("packageName")),
         PhoneTool("phone_open_settings", "打开系统入口", "打开当前systemTargets支持的系统设置页或alarms闹钟列表；destination必须来自该列表。只导航，不等于修改完成。packageName仅app_details/app_notifications填写目标应用包名，其余留空。", PhoneActionType.OPEN_SETTINGS, listOf("destination","packageName")),
         PhoneTool("phone_set_alarm", "设置闹钟", "使用本机标准时钟接口创建闹钟，随后核对时钟页面。packageName取systemTargets中alarm对应应用；hour为24小时制0–23，minute为0–59，days为周一1至周日7的逗号分隔数字（如1,2,3,4,5），单次留空。单次表示下一个对应时刻，不支持指定远期日期；text是用户要求的标签，无则留空。请求后不可重复创建。", PhoneActionType.SET_ALARM, listOf("packageName","hour","minute","days","text")),
@@ -112,15 +112,8 @@ object PhoneTools {
     }
     fun read(action: PhoneAction, screen: ScreenSnapshot, apps: Map<String, String>, request: MessageRequest?, steps: List<PhoneStep>, knowledge: PhoneKnowledge = PhoneKnowledge()): String = when (action.type) {
         in knowledgeActions -> knowledge.read(action, apps)
-        PhoneActionType.READ_SCREEN -> buildJsonObject {
-            put("packageName", screen.packageName); put("notice", screen.notice); put("visibleNodeCount", screen.nodes.size)
-            put("nodes", Json.encodeToJsonElement(screen.nodes.take(20).map { it.copy(text = it.text.take(200), description = it.description.take(120)) }))
-            put("note", "此结果最多 20 个节点；完整当前快照随每次规划请求提供")
-        }.toString()
-        PhoneActionType.FIND_NODES -> buildJsonObject {
-            val found = screen.nodes.filter { node -> listOf(node.text, node.description, node.resourceId, node.hint,node.stateDescription).any { it.contains(action.query, true) } }
-            put("totalVisibleMatches", found.size); put("nodes", Json.encodeToJsonElement(found.take(20))); put("visiblePageOnly", true)
-        }.toString()
+        PhoneActionType.READ_SCREEN -> ScreenDocument.read(screen, action.startLine, action.lineCount)
+        PhoneActionType.FIND_NODES -> ScreenDocument.grep(screen, action.query)
         PhoneActionType.VERIFY_MESSAGE -> buildJsonObject {
             put("draftMatches", request != null && MessagePolicy.draftVisible(screen, request))
             put("taskVerified", request != null && MessagePolicy.completed(screen, request, steps))

@@ -28,6 +28,9 @@ data class ScreenNode(
     val rangeValue: Float? = null,
     val canSetProgress: Boolean = false,
     val rangeIsInteger: Boolean = false,
+    val depth: Int = 0,
+    val bounds: String = "",
+    val region: String = "",
 )
 
 @Serializable
@@ -41,6 +44,8 @@ data class ScreenSnapshot(
     val appVersion: String = "",
     val systemTargets: List<SystemTarget> = emptyList(),
     val localTime: String = "",
+    val screenFilePath: String = "",
+    val truncated: Boolean = false,
 ) {
     fun containsText(value: String): Boolean = value.isNotBlank() &&
         nodes.any { value in it.text || value in it.description || value in it.stateDescription }
@@ -98,6 +103,8 @@ data class PhoneAction(
     val extensionId: String = "",
     val resource: String = "",
     val argumentsJson: String = "",
+    val startLine: String = "",
+    val lineCount: String = "",
 )
 
 fun PhoneAction.messageRequest() = MessageRequest(channel, packageName, recipient, text, draftOnly)
@@ -253,6 +260,11 @@ object PhonePolicy {
                 else -> null
             }
             PhoneActionType.SEND_MESSAGE -> MessagePolicy.validateSend(action, screen, request, steps)
+            PhoneActionType.READ_SCREEN -> when {
+                action.startLine.isNotBlank() && (action.startLine.trim().toIntOrNull()?.let { it >= 1 } != true) -> "startLine 须为正整数或空字符串"
+                action.lineCount.isNotBlank() && (action.lineCount.trim().toIntOrNull()?.let { it in 1..ScreenDocument.MAX_READ_LINE_COUNT } != true) -> "lineCount 须为 1–${ScreenDocument.MAX_READ_LINE_COUNT} 的整数或空字符串"
+                else -> null
+            }
             PhoneActionType.FIND_NODES -> if (action.query.isBlank() || action.query.length > 100) "查找关键词须为 1–100 字符" else null
             PhoneActionType.SEARCH_APPS -> when {
                 action.query.length > 200 -> "应用查询过长"
