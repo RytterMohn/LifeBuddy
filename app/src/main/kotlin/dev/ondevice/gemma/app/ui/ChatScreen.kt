@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -67,13 +68,20 @@ fun ChatScreen(viewModel: ChatViewModel, useCloud: Boolean = true, onMode: () ->
                 else if(msg.isTool) ToolMessage(msg)
                 else Column(if(index==messages.lastIndex) Modifier.onSizeChanged { replyHeight=it.height } else Modifier,verticalArrangement=Arrangement.spacedBy(8.dp)) {
                     MarkdownMessage(msg.content)
-                    if (useCloud && msg.detail.isNotBlank()) {
-                        val metrics = remember(msg.detail) { runCatching { Json.parseToJsonElement(msg.detail).jsonObject["harness"]?.jsonObject }.getOrNull() }
-                        metrics?.let {
-                            var showMetrics by remember(msg.id) { mutableStateOf(false) }
-                            TextButton(onClick = { showMetrics = !showMetrics }, contentPadding = PaddingValues(0.dp)) { Text(tr("本次执行信息"), fontSize = 11.sp, color = Muted) }
-                            if (showMetrics) Text(tr("${it["requests"] ?: 0} 次模型请求 · ${it["tools"] ?: 0} 次工具调用 · ${it["compactions"] ?: 0} 次历史整理\n耗时 ${it["elapsedMs"]?.jsonPrimitive?.long?.div(1000.0)} 秒 · 最大输入约 ${it["peakEstimatedInputTokens"]} Token（估算）", "${it["requests"] ?: 0} requests · ${it["tools"] ?: 0} tool calls · ${it["compactions"] ?: 0} summaries\n${it["elapsedMs"]?.jsonPrimitive?.long?.div(1000.0)} s · Peak input ~${it["peakEstimatedInputTokens"]} tokens"), fontSize = 11.sp, lineHeight = 18.sp, color = Muted)
+                    val metrics = if (useCloud && msg.detail.isNotBlank()) remember(msg.detail) { runCatching { Json.parseToJsonElement(msg.detail).jsonObject["harness"]?.jsonObject }.getOrNull() } else null
+                    var showMetrics by remember(msg.id) { mutableStateOf(false) }
+                    if (msg.content.isNotBlank() || metrics != null) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            CopyActionButton(msg.content)
+                            if (metrics != null) {
+                                TextButton(onClick = { showMetrics = !showMetrics }, contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)) {
+                                    Text(tr("本次执行信息"), fontSize = 11.sp, color = Muted)
+                                }
+                            }
                         }
+                    }
+                    if (metrics != null && showMetrics) SelectionContainer {
+                        Text(tr("${metrics["requests"] ?: 0} 次模型请求 · ${metrics["tools"] ?: 0} 次工具调用 · ${metrics["compactions"] ?: 0} 次历史整理\n耗时 ${metrics["elapsedMs"]?.jsonPrimitive?.long?.div(1000.0)} 秒 · 最大输入约 ${metrics["peakEstimatedInputTokens"]} Token（估算）", "${metrics["requests"] ?: 0} requests · ${metrics["tools"] ?: 0} tool calls · ${metrics["compactions"] ?: 0} summaries\n${metrics["elapsedMs"]?.jsonPrimitive?.long?.div(1000.0)} s · Peak input ~${metrics["peakEstimatedInputTokens"]} tokens"), fontSize = 11.sp, lineHeight = 18.sp, color = Muted)
                     }
                     if(msg.state in setOf("stopped","interrupted")) Text(if(msg.state=="stopped") tr("已停止生成") else tr("生成中断 · 已保留内容"),fontSize=11.sp,color=Muted)
                 }

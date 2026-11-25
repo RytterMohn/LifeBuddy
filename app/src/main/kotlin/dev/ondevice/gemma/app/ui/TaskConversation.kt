@@ -48,7 +48,12 @@ private fun LazyListScope.taskTurn(run: PhoneRun) {
     run.followUps.forEachIndexed { index, reply ->
         item(key = "$key-reply-$index") {
             Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                run.steps.getOrNull(reply.afterStep - 1)?.action?.reason?.let { MarkdownMessage(it) }
+                run.steps.getOrNull(reply.afterStep - 1)?.action?.reason?.let {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        MarkdownMessage(it)
+                        CopyActionButton(it)
+                    }
+                }
                 UserMessage(reply.text)
             }
         }
@@ -84,15 +89,22 @@ private fun TaskResult(run: PhoneRun) {
                     }
                 }
                 // The full model explanation remains in the expandable final step.
-                MarkdownMessage(if (uncertainExtension) tr("外部工具已开始执行，但结果尚未返回。请先到对应服务核对；停止或连接中断不代表执行失败，助手不会自动重试。", "The external tool started, but its result is unknown. Check the service first. Stopping or losing the connection does not mean it failed; the assistant will not retry automatically.")
+                val resultText = if (uncertainExtension) tr("外部工具已开始执行，但结果尚未返回。请先到对应服务核对；停止或连接中断不代表执行失败，助手不会自动重试。", "The external tool started, but its result is unknown. Check the service first. Stopping or losing the connection does not mean it failed; the assistant will not retry automatically.")
                     else if (uncertainSend) tr("已尝试发送，结果待确认。请先到聊天页核对；后续读取或滚动失败不代表消息未发送，Agent 不会自动重发。")
-                    else if (completed && finish != null) run.message.substringBefore("\n页面证据：") else if (active || !completed) systemText(run.message) else run.message)
+                    else if (completed && finish != null) run.message.substringBefore("\n页面证据：") else if (active || !completed) systemText(run.message) else run.message
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    MarkdownMessage(resultText)
+                    if (!active) CopyActionButton(resultText)
+                }
                 if (uncertainSend) Text(tr("可以在这段对话里继续说明；明确要求再发一次时，会发起新一轮发送。"), fontSize = 12.sp, color = Muted)
                 if(completed && learned.isNotEmpty()) Text(tr("已积累技能：${learned.joinToString { it.title }}。可在设置 → 学习与经验中查看。", "Learned: ${learned.joinToString { it.title }}. View under Settings → Learning & experience."),fontSize=12.sp,lineHeight=19.sp,color=Muted)
                 else if(completed && skillState.jobs.any { it.executionId==execution }) Text(tr("正在整理本次任务的技能…"),fontSize=12.sp,color=Muted)
                 if (completed && finish != null && finish.evidence.isNotBlank()) {
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Soft).padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                        Text(tr("页面确认结果"), fontSize = 11.sp, color = Muted)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text(tr("页面确认结果"), fontSize = 11.sp, color = Muted)
+                            CopyActionButton(finish.evidence)
+                        }
                         SelectionContainer { Text(finish.evidence, fontSize = 14.sp, lineHeight = 22.sp) }
                     }
                 }
@@ -124,7 +136,9 @@ private fun StepRow(step: PhoneStep, active: Boolean, completed: Boolean) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(label, fontSize = 13.sp, fontWeight = FontWeight.Medium)
             Text(PhoneTools.name(step.action.type), fontSize = 10.sp, color = Muted)
-            Text(step.action.reason, fontSize = 12.sp, lineHeight = 19.sp, color = Muted)
+            SelectionContainer {
+                Text(step.action.reason, fontSize = 12.sp, lineHeight = 19.sp, color = Muted)
+            }
             step.timing?.let { timing ->
                 fun seconds(ms: Long) = String.format(java.util.Locale.ROOT, "%.1f", ms / 1000.0)
                 Text(tr("模型 ${seconds(timing.planningMs)} 秒 · 读取 ${seconds(timing.observeMs)} 秒 · 执行 ${seconds(timing.executeMs)} 秒 · 页面等待 ${seconds(timing.settleMs)} 秒", "Model ${seconds(timing.planningMs)} s · Read ${seconds(timing.observeMs)} s · Execute ${seconds(timing.executeMs)} s · Wait ${seconds(timing.settleMs)} s"),
@@ -133,14 +147,18 @@ private fun StepRow(step: PhoneStep, active: Boolean, completed: Boolean) {
             if (step.action.text.isNotEmpty()) SelectionContainer {
                 Text(step.action.text, Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(Soft).padding(10.dp), fontSize = 13.sp, lineHeight = 20.sp)
             }
-            Text(when {
+            val observationText = when {
                 step.action.type == PhoneActionType.RESPOND && completed -> tr("已回答，无需手机操作")
                 isFinish && completed -> tr("已核对页面证据")
                 step.action.type == PhoneActionType.SEND_MESSAGE && step.dispatchAttempted && !step.dispatched -> tr("已尝试调用发送；结果待确认，不会自动重试")
                 step.action.type == PhoneActionType.CALL_EXTENSION && step.dispatchAttempted && !step.dispatched -> tr("外部调用已开始，结果待确认", "External call started; outcome unknown")
                 !step.dispatched -> if (active && step.observation == "等待执行") tr("等待执行") else tr("未执行 · ${step.observation}", "Not executed · ${systemText(step.observation)}")
                 else -> if (step.action.type in PhoneTools.extensionActions) step.observation else systemText(step.observation)
-            }, fontSize = 11.sp, lineHeight = 18.sp, color = if (isFinish && completed) Green else Muted)
+            }
+            SelectionContainer {
+                Text(observationText, fontSize = 11.sp, lineHeight = 18.sp, color = if (isFinish && completed) Green else Muted)
+            }
+            CopyActionButton(listOf(step.action.reason, step.action.text, observationText).filter { it.isNotBlank() }.joinToString("\n"))
         }
     }
 }
@@ -156,11 +174,15 @@ internal fun ToolMessage(message: UiMessage) {
             Text(tr("已调用"), fontSize = 10.sp, color = Muted, modifier = Modifier.padding(end = 8.dp))
             Glyph(if (expanded) "chevron" else "right", Modifier.size(13.dp), Muted)
         }
-        if (expanded) SelectionContainer {
-            Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                detail?.get("arguments")?.jsonObject?.takeIf { it.isNotEmpty() }?.let { Text(tr("参数：$it", "Arguments: $it"), fontSize = 12.sp, lineHeight = 19.sp, color = Muted) }
-                Text(detail?.get("result")?.jsonPrimitive?.contentOrNull ?: message.detail, fontSize = 12.sp, lineHeight = 20.sp)
+        if (expanded) Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            val resultText = detail?.get("result")?.jsonPrimitive?.contentOrNull ?: message.detail
+            SelectionContainer {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    detail?.get("arguments")?.jsonObject?.takeIf { it.isNotEmpty() }?.let { Text(tr("参数：$it", "Arguments: $it"), fontSize = 12.sp, lineHeight = 19.sp, color = Muted) }
+                    Text(resultText, fontSize = 12.sp, lineHeight = 20.sp)
+                }
             }
+            CopyActionButton(resultText)
         }
     }
 }

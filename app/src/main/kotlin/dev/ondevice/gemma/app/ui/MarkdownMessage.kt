@@ -7,15 +7,15 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.*
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -111,12 +111,16 @@ private fun MarkdownBlock(node: Node) {
 
 @Composable
 private fun MarkdownCode(code: String, language: String) {
-    val clipboard = LocalClipboardManager.current
-    var copied by remember(code) { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Soft)) {
-        Row(Modifier.fillMaxWidth().padding(start=14.dp,end=4.dp),horizontalArrangement=Arrangement.SpaceBetween) {
-            Text(language.ifBlank { tr("代码") },Modifier.padding(vertical=14.dp),fontSize=12.sp,color=Muted)
-            TextButton(onClick={clipboard.setText(AnnotatedString(code));copied=true}) { Text(if(copied) tr("已复制") else tr("复制"),fontSize=12.sp,color=Muted) }
+        DisableSelection {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 14.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(language.ifBlank { tr("代码") }, fontSize = 12.sp, color = Muted)
+                CopyActionButton(code)
+            }
         }
         HorizontalDivider(color=Line)
         Box(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(14.dp)) {

@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.selection.DisableSelection
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -21,13 +23,16 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.ondevice.gemma.app.R
+import kotlinx.coroutines.delay
 
 internal val Ink = Color(0xFF202123)
 internal val Muted = Color(0xFF77797D)
@@ -75,6 +80,10 @@ internal fun Glyph(name: String, modifier: Modifier = Modifier, color: Color = I
             "phone" -> { drawRoundRect(color,Offset(6*u,2*u),Size(12*u,20*u),androidx.compose.ui.geometry.CornerRadius(3*u),style=Stroke(1.7f*u)); line(10f,18f,14f,18f) }
             "settings" -> { line(3f,7f,21f,7f); line(3f,17f,21f,17f); drawCircle(Color.White,3*u,Offset(9*u,7*u)); drawCircle(color,3*u,Offset(9*u,7*u),style=Stroke(1.7f*u)); drawCircle(Color.White,3*u,Offset(16*u,17*u)); drawCircle(color,3*u,Offset(16*u,17*u),style=Stroke(1.7f*u)) }
             "chat" -> path(5f to 4f,20f to 4f,20f to 17f,10f to 17f,4f to 21f,4f to 4f,5f to 4f)
+            "copy" -> {
+                drawRoundRect(color, Offset(9 * u, 9 * u), Size(11 * u, 11 * u), androidx.compose.ui.geometry.CornerRadius(2.2f * u), style = Stroke(1.7f * u))
+                path(15f to 9f, 15f to 5f, 5f to 5f, 5f to 15f, 9f to 15f)
+            }
             else -> { path(12f to 2f,15f to 9f,22f to 12f,15f to 15f,12f to 22f,9f to 15f,2f to 12f,9f to 9f,12f to 2f) }
         }
     }
@@ -94,10 +103,46 @@ internal fun AgentMark(size: Int = 36) {
 }
 
 @Composable
+internal fun CopyActionButton(text: String, modifier: Modifier = Modifier) {
+    if (text.isBlank()) return
+    val clipboard = LocalClipboardManager.current
+    var copied by remember(text) { mutableStateOf(false) }
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(1800)
+            copied = false
+        }
+    }
+    DisableSelection {
+        Row(
+            modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable {
+                    clipboard.setText(AnnotatedString(text))
+                    copied = true
+                }
+                .padding(horizontal = 6.dp, vertical = 4.dp)
+                .semantics { contentDescription = if (copied) tr("已复制") else tr("复制") },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Glyph(if (copied) "check" else "copy", Modifier.size(14.dp), if (copied) Green else Muted)
+            Text(if (copied) tr("已复制") else tr("复制"), fontSize = 11.sp, color = if (copied) Green else Muted)
+        }
+    }
+}
+
+@Composable
 internal fun UserMessage(text: String) {
-    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) {
-        Text(text,Modifier.widthIn(max=300.dp).clip(RoundedCornerShape(24.dp)).background(Soft).padding(horizontal=18.dp,vertical=13.dp),
-            fontSize=16.sp,lineHeight=24.sp)
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        SelectionContainer {
+            Text(
+                text,
+                Modifier.widthIn(max = 300.dp).clip(RoundedCornerShape(24.dp)).background(Soft).padding(horizontal = 18.dp, vertical = 13.dp),
+                fontSize = 16.sp, lineHeight = 24.sp,
+            )
+        }
+        CopyActionButton(text, Modifier.padding(end = 6.dp))
     }
 }
 
